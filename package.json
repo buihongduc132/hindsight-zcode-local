@@ -1,0 +1,28 @@
+{
+  "name": "hindsight-zcode-local",
+  "version": "0.1.0",
+  "description": "Durable time-aware memory for ZCode via Hindsight. Exposes hindsight_search/context/retain MCP tools that reuse the SAME banks as the pi agent.",
+  "private": true,
+  "license": "MIT",
+  "author": { "name": "bhd" },
+  "type": "commonjs",
+  "main": "./src/mcp-server.js",
+  "bin": {
+    "hindsight-zcode-mcp": "./src/mcp-server.js"
+  },
+  "scripts": {
+    "start": "node src/mcp-server.js",
+    "test": "node --test test/",
+    "smoke": "node scripts/smoke.js"
+  },
+  "keywords": [
+    "zcode-plugin",
+    "hindsight",
+    "memory",
+    "mcp",
+    "zcode"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}

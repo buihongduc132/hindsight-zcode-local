@@ -1,0 +1,68 @@
+{
+  "name": "hindsight",
+  "version": "0.1.0",
+  "description": "Durable time-aware memory for ZCode via Hindsight. Exposes hindsight_search (recall), hindsight_context (reflect), and hindsight_retain tools that reuse the SAME hindsight banks as the pi agent. Shares ~/.hindsight/config.json and resolves identical bank IDs.",
+  "author": { "name": "bhd" },
+  "license": "MIT",
+  "skills": "skills",
+  "commands": "commands",
+  "mcpServers": {
+    "hindsight": {
+      "command": "node",
+      "args": ["${ZCODE_PLUGIN_ROOT}/src/mcp-server.js"],
+      "cwd": "${ZCODE_PROJECT_DIR}",
+      "env": {
+        "HINDSIGHT_ENABLED": "${user_config.enabled}",
+        "HINDSIGHT_BASE_URL": "${user_config.base_url}",
+        "HINDSIGHT_API_KEY": "${user_config.api_key}",
+        "HINDSIGHT_BANK_ID": "${user_config.bank_id}",
+        "HINDSIGHT_GLOBAL_BANK_ID": "${user_config.global_bank_id}",
+        "HINDSIGHT_BANK_STRATEGY": "${user_config.bank_strategy}",
+        "HINDSIGHT_SEARCH_BUDGET": "${user_config.search_budget}",
+        "HINDSIGHT_REFLECT_BUDGET": "${user_config.reflect_budget}"
+      }
+    }
+  },
+  "userConfig": {
+    "enabled": {
+      "type": "string",
+      "default": "true",
+      "description": "Master enable. If false the MCP server refuses calls. Usually controlled by ~/.hindsight/config.json instead."
+    },
+    "base_url": {
+      "type": "string",
+      "default": "",
+      "description": "Override the Hindsight server URL. Empty = use ~/.hindsight/config.json (recommended so pi and zcode agree)."
+    },
+    "api_key": {
+      "type": "string",
+      "default": "",
+      "description": "Override the Hindsight API key. Empty = use ~/.hindsight/config.json."
+    },
+    "bank_id": {
+      "type": "string",
+      "default": "",
+      "description": "Force a single bank ID for every project. Empty = derive per-repo (same as pi)."
+    },
+    "global_bank_id": {
+      "type": "string",
+      "default": "",
+      "description": "Optional global/cross-project bank ID, surfaced alongside the per-project bank."
+    },
+    "bank_strategy": {
+      "type": "string",
+      "default": "",
+      "description": "Bank derivation strategy: per-repo (default), per-directory, git-branch, global, pi-session, manual. Empty = use config file."
+    },
+    "search_budget": {
+      "type": "string",
+      "default": "",
+      "description": "Default recall budget: low | mid | high. Empty = mid (or config file)."
+    },
+    "reflect_budget": {
+      "type": "string",
+      "default": "",
+      "description": "Default reflect budget: low | mid | high. Empty = low (or config file)."
+    }
+  }
+}

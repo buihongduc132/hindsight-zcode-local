@@ -159,11 +159,13 @@ const main = async () => {
 		if (rendered === "(no memories recalled)") continue;
 		if (results.length > 1) lines.push(`# Hindsight — ${bank}`);
 		lines.push(rendered);
-		const items = Array.isArray(r.value?.memories)
-			? r.value.memories
-			: Array.isArray(r.value?.items)
-				? r.value.items
-				: [];
+		const items = Array.isArray(r.value?.results)
+			? r.value.results
+			: Array.isArray(r.value?.memories)
+				? r.value.memories
+				: Array.isArray(r.value?.items)
+					? r.value.items
+					: [];
 		total += items.length;
 	}
 	if (total === 0) return emit("{}");

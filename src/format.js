@@ -26,8 +26,13 @@ const formatHindsightStatus = (s) => {
  */
 const formatRecallResults = (result, previewLength) => {
 	/** @type {string[]} */ const sections = [];
-	const memories = Array.isArray(result?.memories) ? result.memories : [];
-	const items = Array.isArray(result?.items) ? result.items : memories;
+	// Server returns {results: [...]}. Match pi's hindsight-pi-local exactly
+	// (context.ts:112 `recall?.results`, tools.ts:97 `main?.results`). Fall back to
+	// memories/items for older/alternate API shapes, but results is canonical.
+	const items =
+		Array.isArray(result?.results) ? result.results :
+		Array.isArray(result?.memories) ? result.memories :
+		Array.isArray(result?.items) ? result.items : [];
 	if (items.length === 0) {
 		return "(no memories recalled)";
 	}

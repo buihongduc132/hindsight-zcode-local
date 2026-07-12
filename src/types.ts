@@ -115,12 +115,6 @@ export interface NormalizedRecallResult {
  * This single chokepoint replaces the three ad-hoc `Array.isArray(result?.X)`
  * branches that caused the silent-drop bug.
  */
-/**
- * Parse a recall response into the canonical NormalizedRecallResult.
- * Accepts {results}, {memories}, or {items} shapes; throws ZodError on garbage.
- * This single chokepoint replaces the three ad-hoc `Array.isArray(result?.X)`
- * branches that caused the silent-drop bug.
- */
 export const parseRecallResponse = (value: unknown): NormalizedRecallResult => {
   const parsed = z
     .object({

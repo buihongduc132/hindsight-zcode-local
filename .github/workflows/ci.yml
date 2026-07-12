@@ -55,11 +55,23 @@ jobs:
           NODE_ENV: development
         run: npm run test
 
-      - name: Verify dist bundles are runnable
+      - name: Verify dist bundles are zero-dependency (run from empty dir)
         run: |
-          echo '{"jsonrpc":"2.0","id":1,"method":"initialize"}' | node dist/mcp-server.cjs | grep -q '"protocolVersion"'
-          echo '{}' | node dist/recall.cjs
-          echo '{}' | node dist/retain.cjs
+          # The honest zero-dependency proof: copy bundles to a directory with NO
+          # node_modules and confirm they run on system Node alone. Running from
+          # the repo root would pass even if zod were externalized (false green).
+          mkdir -p /tmp/zerodep-check
+          cp dist/mcp-server.cjs dist/recall.cjs dist/retain.cjs /tmp/zerodep-check/
+          cd /tmp/zerodep-check
+          echo '{"jsonrpc":"2.0","id":1,"method":"initialize"}' | node mcp-server.cjs | grep -q '"protocolVersion"'
+          echo '{}' | node recall.cjs
+          echo '{}' | node retain.cjs
+          # Confirm NO external requires of non-builtin packages remain.
+          for f in *.cjs; do
+            bad=$(grep -oE 'require\("[^".]+"\)' "$f" | grep -vE 'require\("(node:|fs|path|os|child_process|crypto|readline|http|https|stream|url|util|events|buffer|querystring)' || true)
+            if [ -n "$bad" ]; then echo "ERROR: $f has external require: $bad"; exit 1; fi
+          done
+          echo "zero-dependency verified: all bundles run without node_modules"
 
       - name: Upload dist artifact
         uses: actions/upload-artifact@v4

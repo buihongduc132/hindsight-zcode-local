@@ -22,9 +22,10 @@ const shared = {
   minifySyntax: true,
   // Keep names so stack traces stay readable in MCP stderr logs.
   keepNames: true,
-  // Never bundle node built-ins (they stay external).
-  packages: "external",
-  // zod is tiny and inlined everywhere; bundle it.
+  // node: built-ins are auto-externalized by platform:"node". We intentionally
+  // do NOT set packages:"external" (that would externalize zod and break the
+  // zero-dependency contract). external:[] means EVERYTHING non-builtin (zod)
+  // is bundled into the .cjs so it runs on system Node without node_modules.
   external: [],
 };
 

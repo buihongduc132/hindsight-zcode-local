@@ -5,3 +5,12 @@ test/.tmp-*/
 *.lcov
 .nyc_output/
 coverage/
+.vitest/
+*.tsbuildinfo
+
+# dist/ IS committed: this is a deployed ZCode plugin loaded via plugins.dirs,
+# which runs `node dist/*.cjs` directly with no build step. (Mirrors how the
+# official ios-simulator plugin ships its dist/ committed.)
+# Negate the global ~/.gitignore_global /dist/ rule so dist/ is tracked here.
+!dist/
+!dist/**

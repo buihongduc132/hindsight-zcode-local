@@ -9,7 +9,7 @@
   "mcpServers": {
     "hindsight": {
       "command": "node",
-      "args": ["${ZCODE_PLUGIN_ROOT}/src/mcp-server.js"],
+      "args": ["${ZCODE_PLUGIN_ROOT}/dist/mcp-server.cjs"],
       "cwd": "${ZCODE_PROJECT_DIR}",
       "env": {
         "HINDSIGHT_ENABLED": "${user_config.enabled}",

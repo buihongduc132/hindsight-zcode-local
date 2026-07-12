@@ -1,28 +1,58 @@
 {
   "name": "hindsight-zcode-local",
-  "version": "0.1.0",
-  "description": "Durable time-aware memory for ZCode via Hindsight. Exposes hindsight_search/context/retain MCP tools that reuse the SAME banks as the pi agent.",
+  "version": "0.2.0",
+  "description": "Durable time-aware memory for ZCode via Hindsight. TypeScript plugin exposing hindsight_search/context/retain/banks MCP tools + per-turn auto-recall/retain hooks. Reuses the SAME banks as the pi agent.",
   "private": true,
   "license": "MIT",
-  "author": { "name": "bhd" },
-  "type": "commonjs",
-  "main": "./src/mcp-server.js",
+  "author": {
+    "name": "bhd"
+  },
+  "type": "module",
+  "main": "./dist/mcp-server.cjs",
   "bin": {
-    "hindsight-zcode-mcp": "./src/mcp-server.js"
+    "hindsight-zcode-mcp": "./dist/mcp-server.cjs"
+  },
+  "files": [
+    "dist",
+    "commands",
+    "skills",
+    "hooks/hooks.json",
+    ".zcode-plugin/plugin.json",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
   },
   "scripts": {
-    "start": "node src/mcp-server.js",
-    "test": "node --test test/",
-    "smoke": "node scripts/smoke.js"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "build": "node scripts/build.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "smoke": "node scripts/smoke.js",
+    "clean": "rm -rf dist .vitest",
+    "all": "npm run typecheck && npm run lint && npm run build && npm run test"
   },
   "keywords": [
     "zcode-plugin",
     "hindsight",
     "memory",
     "mcp",
-    "zcode"
+    "zcode",
+    "typescript"
   ],
-  "engines": {
-    "node": ">=18"
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/node": "^22.10.0",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "esbuild": "^0.24.0",
+    "eslint": "^9.17.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.18.0",
+    "vitest": "^2.1.0",
+    "zod": "^3.25.76"
   }
 }

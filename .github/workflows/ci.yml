@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Typecheck, Lint, Build, Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      # NODE_ENV is unset on CI; set it explicitly so devDependencies install.
+      # (npm skips devDeps when NODE_ENV=production; this project is a bundled
+      # library whose deps are ALL devDeps.)
+      - name: Install dependencies
+        env:
+          NODE_ENV: development
+        run: npm install --include=dev --no-fund --no-audit
+
+      - name: Typecheck (tsc --noEmit)
+        env:
+          NODE_ENV: development
+        run: npm run typecheck
+
+      - name: Lint (eslint)
+        env:
+          NODE_ENV: development
+        run: npm run lint
+
+      - name: Build (esbuild bundle)
+        env:
+          NODE_ENV: development
+        run: npm run build
+
+      - name: Test (vitest)
+        env:
+          NODE_ENV: development
+        run: npm run test
+
+      - name: Verify dist bundles are runnable
+        run: |
+          echo '{"jsonrpc":"2.0","id":1,"method":"initialize"}' | node dist/mcp-server.cjs | grep -q '"protocolVersion"'
+          echo '{}' | node dist/recall.cjs
+          echo '{}' | node dist/retain.cjs
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14

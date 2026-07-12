@@ -8,7 +8,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ${ZCODE_PLUGIN_ROOT}/hooks/recall.js",
+            "command": "node ${ZCODE_PLUGIN_ROOT}/dist/recall.cjs",
             "timeout": 30,
             "timeoutMs": 30000,
             "statusMessage": "🧠 Hindsight recalling…"
@@ -21,7 +21,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ${ZCODE_PLUGIN_ROOT}/hooks/retain.js",
+            "command": "node ${ZCODE_PLUGIN_ROOT}/dist/retain.cjs",
             "timeout": 45,
             "timeoutMs": 45000,
             "statusMessage": "🧠 Hindsight retaining…",

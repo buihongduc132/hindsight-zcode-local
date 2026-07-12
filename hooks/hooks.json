@@ -1,15 +1,11 @@
 {
-  "enabled": true,
-  "timeoutMs": 30000,
-  "maxOutputBytes": 65536,
-  "events": {
+  "hooks": {
     "UserPromptSubmit": [
       {
         "hooks": [
           {
             "type": "command",
             "command": "node ${ZCODE_PLUGIN_ROOT}/dist/recall.cjs",
-            "timeout": 30,
             "timeoutMs": 30000,
             "statusMessage": "🧠 Hindsight recalling…"
           }
@@ -22,10 +18,10 @@
           {
             "type": "command",
             "command": "node ${ZCODE_PLUGIN_ROOT}/dist/retain.cjs",
+            "async": true,
             "timeout": 45,
             "timeoutMs": 45000,
-            "statusMessage": "🧠 Hindsight retaining…",
-            "async": true
+            "statusMessage": "🧠 Hindsight retaining…"
           }
         ]
       }

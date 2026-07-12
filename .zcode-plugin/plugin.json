@@ -6,6 +6,7 @@
   "license": "MIT",
   "skills": "skills",
   "commands": "commands",
+  "hooks": "hooks/hooks.json",
   "mcpServers": {
     "hindsight": {
       "command": "node",

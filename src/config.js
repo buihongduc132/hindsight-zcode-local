@@ -24,6 +24,31 @@ const { dirname, join, resolve: resolvePath } = require("node:path");
 /** @typedef {"hybrid"|"context"|"tools"|"off"} RecallMode */
 /** @typedef {"low"|"mid"|"high"} SearchBudget */
 /** @typedef {"world"|"experience"|"observation"} RecallType */
+/** @typedef {"every-turn"|"first-turn"} InjectionFrequency */
+
+/** @param {unknown} value @param {RecallMode} fallback @returns {RecallMode} */
+const normalizeRecallMode = (value, fallback) => {
+	switch (value) {
+		case "hybrid":
+		case "context":
+		case "tools":
+		case "off":
+			return value;
+		default:
+			return fallback;
+	}
+};
+
+/** @param {unknown} value @param {InjectionFrequency} fallback @returns {InjectionFrequency} */
+const normalizeInjectionFrequency = (value, fallback) => {
+	switch (value) {
+		case "every-turn":
+		case "first-turn":
+			return value;
+		default:
+			return fallback;
+	}
+};
 
 const CONFIG_PATH = join(homedir(), ".hindsight", "config.json");
 const LOCAL_CONFIG_PATH = ".hindsight/config.json";
@@ -236,19 +261,21 @@ const resolveConfig = async (cwd) => {
 					file?.api_url,
 			),
 		),
-		apiKey: process.env.HINDSIGHT_API_KEY ?? zhost.apiKey ?? host.apiKey ?? file?.apiKey ?? file?.api_key,
+		apiKey: process.env.HINDSIGHT_API_KEY ?? file?.apiKey ?? file?.api_key,
 		baseUrl: normalizeBaseUrl(
-			process.env.HINDSIGHT_BASE_URL ?? zhost.baseUrl ?? host.baseUrl ?? file?.baseUrl ?? file?.api_url ?? DEFAULT_BASE_URL,
+			process.env.HINDSIGHT_BASE_URL ?? file?.baseUrl ?? file?.api_url ?? DEFAULT_BASE_URL,
 		),
-		bankId: process.env.HINDSIGHT_BANK_ID ?? zhost.bankId ?? host.bankId ?? file?.bankId ?? file?.bank_id,
+		bankId: process.env.HINDSIGHT_BANK_ID ?? file?.bankId ?? file?.bank_id,
 		globalBankId:
-			process.env.HINDSIGHT_GLOBAL_BANK_ID ??
-			zhost.globalBankId ??
-			host.globalBankId ??
-			file?.globalBankId ??
-			file?.global_bank,
+			process.env.HINDSIGHT_GLOBAL_BANK_ID ?? file?.globalBankId ?? file?.global_bank,
 		bankStrategy: normalizeBankStrategy(
-			process.env.HINDSIGHT_BANK_STRATEGY ?? zhost.bankStrategy ?? host.bankStrategy ?? file?.bankStrategy,
+			process.env.HINDSIGHT_BANK_STRATEGY ??
+				file?.bankStrategy ??
+				// pi default: if a bankId is explicitly set, use "manual" so it is honored;
+				// otherwise "per-repo". This keeps zcode on the same bank pi would pick.
+				(process.env.HINDSIGHT_BANK_ID ?? file?.bankId ?? file?.bank_id
+					? "manual"
+					: "per-repo"),
 		),
 		workspace: zhost.workspace ?? host.workspace ?? "zcode",
 		peerName: zhost.peerName ?? host.peerName ?? "user",
@@ -263,6 +290,28 @@ const resolveConfig = async (cwd) => {
 		toolPreviewLength: intOr(process.env.HINDSIGHT_TOOL_PREVIEW_LENGTH ?? zhost.toolPreviewLength ?? host.toolPreviewLength, 500),
 		maxMessageLength: intOr(process.env.HINDSIGHT_MAX_MESSAGE_LENGTH ?? zhost.maxMessageLength ?? host.maxMessageLength, 25000),
 		logging: boolOr(process.env.HINDSIGHT_LOGGING ?? zhost.logging ?? host.logging, true),
+		// Per-turn auto-recall knobs (mirror pi's hindsight-pi-local).
+		// recallMode: context = auto-inject every turn (UserPromptSubmit hook);
+		//             hybrid  = auto-inject + tools; tools = manual only; off = disabled.
+		recallMode: normalizeRecallMode(
+			process.env.HINDSIGHT_RECALL_MODE ?? zhost.recallMode ?? host.recallMode ?? file?.recallMode,
+			"context",
+		),
+		// injectionFrequency: every-turn (default) or first-turn (recall only on turn 1).
+		injectionFrequency: normalizeInjectionFrequency(
+			process.env.HINDSIGHT_INJECTION_FREQUENCY ?? zhost.injectionFrequency ?? host.injectionFrequency ?? file?.injectionFrequency,
+			"every-turn",
+		),
+		// contextTokens: recall budget for auto-injection (pi default 1200).
+		contextTokens: intOr(
+			process.env.HINDSIGHT_CONTEXT_TOKENS ?? zhost.contextTokens ?? host.contextTokens,
+			1200,
+		),
+		// Retain (write) side — mirrors pi HINDSIGHT_RETAIN_MODE.
+		// response = retain agent's final answer on Stop (this plugin's retain.js).
+		// off = no auto-retain (agent uses hindsight_retain tool manually).
+		retainMode: (process.env.HINDSIGHT_RETAIN_MODE ?? zhost.retainMode ?? host.retainMode ?? "response"),
+		retainTags: (process.env.HINDSIGHT_RETAIN_TAGS ?? zhost.retainTags ?? host.retainTags ?? "").split(",").map((s) => s.trim()).filter(Boolean),
 		mappings: file?.mappings ?? {},
 	};
 
@@ -279,6 +328,8 @@ module.exports = {
 	normalizeRecallTypes,
 	normalizeBankStrategy,
 	normalizeBudget,
+	normalizeRecallMode,
+	normalizeInjectionFrequency,
 	collectParentDirs,
 	readConfigFile,
 	resolveConfig,

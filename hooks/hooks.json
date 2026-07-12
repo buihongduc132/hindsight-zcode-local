@@ -1,0 +1,34 @@
+{
+  "enabled": true,
+  "timeoutMs": 30000,
+  "maxOutputBytes": 65536,
+  "events": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${ZCODE_PLUGIN_ROOT}/hooks/recall.js",
+            "timeout": 30,
+            "timeoutMs": 30000,
+            "statusMessage": "🧠 Hindsight recalling…"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${ZCODE_PLUGIN_ROOT}/hooks/retain.js",
+            "timeout": 45,
+            "timeoutMs": 45000,
+            "statusMessage": "🧠 Hindsight retaining…",
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}

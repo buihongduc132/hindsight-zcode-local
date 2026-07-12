@@ -10,10 +10,10 @@
  */
 
 const { createHash } = require("node:crypto");
-const { readFile, writeFile, mkdir } = require("node:fs/promises");
-const { dirname, join } = require("node:path");
+const { readFile } = require("node:fs/promises");
+const { existsSync } = require("node:fs");
+const { dirname, join, resolve: resolvePath } = require("node:path");
 const { execGit } = require("./git");
-const { collectParentDirs } = require("./config");
 
 /** @param {string} value @returns {string} */
 const hash = (value) =>
@@ -81,32 +81,53 @@ const branchName = async (cwd) => {
 /** @returns {string} */
 const sessionSlug = () => sanitizeBankId(`session-${Date.now().toString(36)}`);
 
+/** Project config filename — mirrors PROJECT_CONFIG_FILENAME from project-config.ts. */
+const PROJECT_CONFIG_FILENAME = ".hindsight.json";
+/** Max parent directories to traverse (0 = cwd only). Mirrors MAX_TRAVERSAL_DEPTH. */
+const MAX_TRAVERSAL_DEPTH = 3;
+
 /**
- * Read a `.hindsight.json` (or `.hindsight/config.json` bankId) project config,
- * walking up parent directories. Mirrors findProjectConfig from project-config.ts.
- * @param {string} cwd
- * @param {number} [maxParents]
- * @returns {Promise<{bankId?: string}|null>}
+ * Read & validate a `.hindsight.json`. Mirrors readProjectConfig from
+ * project-config.ts: requires version === 1 AND bankId.
+ * @param {string} filePath
+ * @returns {Promise<{bankId: string}|null>}
  */
-const findProjectConfig = async (cwd, maxParents = 3) => {
-	const dirs = collectParentDirs(cwd).slice(-maxParents);
-	for (const dir of [...dirs].reverse()) {
-		// .hindsight.json in project root
-		try {
-			const raw = await readFile(join(dir, ".hindsight.json"), "utf8");
-			const parsed = JSON.parse(raw);
-			if (parsed && parsed.bankId) return { bankId: parsed.bankId };
-		} catch {
-			/* ignore */
+const readProjectConfig = async (filePath) => {
+	try {
+		const raw = await readFile(filePath, "utf8");
+		const parsed = JSON.parse(raw);
+		if (parsed && typeof parsed === "object" && parsed.version === 1 && parsed.bankId) {
+			return { bankId: parsed.bankId };
 		}
-		// .hindsight/config.json bankId
-		try {
-			const raw = await readFile(join(dir, ".hindsight", "config.json"), "utf8");
-			const parsed = JSON.parse(raw);
-			if (parsed && parsed.bankId) return { bankId: parsed.bankId };
-		} catch {
-			/* ignore */
+		return null;
+	} catch {
+		return null;
+	}
+};
+
+/**
+ * Search for `.hindsight.json` starting at cwd, walking up at most
+ * MAX_TRAVERSAL_DEPTH parent directories. Mirrors findProjectConfig from
+ * project-config.ts EXACTLY (same filename, same validation, same depth).
+ *
+ * NOTE: pi only reads `.hindsight.json` here — NOT `.hindsight/config.json`.
+ * The `.hindsight/config.json` bankId is consumed by the config merger, not by
+ * bank derivation, so it MUST NOT be read here or the resolved bank would differ.
+ *
+ * @param {string} cwd
+ * @returns {Promise<{bankId: string}|null>}
+ */
+const findProjectConfig = async (cwd) => {
+	let current = resolvePath(cwd);
+	for (let depth = 0; depth <= MAX_TRAVERSAL_DEPTH; depth++) {
+		const candidate = join(current, PROJECT_CONFIG_FILENAME);
+		if (existsSync(candidate)) {
+			const config = await readProjectConfig(candidate);
+			if (config) return config;
 		}
+		const parent = dirname(current);
+		if (parent === current) break; // reached root
+		current = parent;
 	}
 	return null;
 };

@@ -23,19 +23,24 @@ A ZCode plugin that bundles:
 Bank ID resolution mirrors `hindsight-pi-local`'s `deriveBankId` **exactly**, with the same precedence:
 
 1. `mappings[cwd]` (explicit map in config)
-2. `.hindsight.json` `bankId` (walking up parent dirs)
+2. `.hindsight.json` `bankId` (walking up parent dirs — requires `version: 1`, max 3 parents, `.hindsight.json` only)
 3. `config.bankId` (explicit override)
 4. strategy: `global` / `pi-session` / `per-directory` / `per-repo` (default)
 
-Config precedence (highest first):
+The bank-identity config fields (`apiKey`, `baseUrl`, `bankId`, `globalBankId`, `bankStrategy`,
+`mappings`) resolve from the **same sources with the same precedence** as pi:
+`HINDSIGHT_*` env → project `.hindsight/config.json` → project `.hindsight/config.toml` →
+global `~/.hindsight/config.json` → global `~/.hindsight/config.toml`.
 
-1. environment variables (`HINDSIGHT_*`)
-2. project `.hindsight/config.json` (walking parents)
-3. project `.hindsight/config.toml` (walking parents)
-4. global `~/.hindsight/config.json`
-5. global `~/.hindsight/config.toml`
+Notable parity details (locked in by `test/pi-alignment.test.js`):
+- `bankStrategy` defaults to `manual` when a `bankId` is set, else `per-repo` (matches pi's ternary).
+- `findProjectConfig` reads **only** `.hindsight.json` and requires `version === 1`; it does NOT
+  read `.hindsight/config.json` (that file's `bankId` reaches derivation via `config.bankId`
+  through the config merger — same as pi).
 
-ZCode-specific overrides may live under `host.pi.zcode` in the config file, layered on top of the shared `host.pi` defaults.
+The only intentional differences are display labels (`workspace`/`aiPeer` default to `"zcode"`
+instead of `"pi"`) and an optional `host.pi.zcode` override layer for behavioral tuning.
+None of these affect which bank is resolved, so zcode and pi hit identical banks.
 
 ## Install
 

@@ -134,8 +134,11 @@ const main = async () => {
 			console.error("[smoke] OK hindsight_search");
 		} catch (searchErr) {
 			const msg = String(searchErr?.message ?? searchErr);
-			if (/embedding|TEI|Connection refused/i.test(msg)) {
-				console.error("[smoke] WARN hindsight_search skipped (embedding service down):", msg.slice(0, 120));
+			// Tolerate hindsight-SERVER-side embedding problems (not plugin defects):
+			//  - TEI embedding service down / refused
+			//  - vector dimension mismatch (server switched embedding models)
+			if (/embedding|TEI|Connection refused|vector dimension|DataError/i.test(msg)) {
+				console.error("[smoke] WARN hindsight_search skipped (server-side embedding issue):", msg.slice(0, 140));
 			} else {
 				throw searchErr;
 			}

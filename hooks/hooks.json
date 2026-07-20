@@ -1,12 +1,24 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${ZCODE_PLUGIN_ROOT}/dist/session-start.cjs",
+            "timeoutMs": 60000,
+            "statusMessage": "🧠 Hindsight draining queue…"
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [
           {
             "type": "command",
             "command": "node ${ZCODE_PLUGIN_ROOT}/dist/recall.cjs",
-            "timeoutMs": 30000,
+            "timeoutMs": 300000,
             "statusMessage": "🧠 Hindsight recalling…"
           }
         ]
@@ -18,9 +30,7 @@
           {
             "type": "command",
             "command": "node ${ZCODE_PLUGIN_ROOT}/dist/retain.cjs",
-            "async": true,
-            "timeout": 45,
-            "timeoutMs": 45000,
+            "timeoutMs": 330000,
             "statusMessage": "🧠 Hindsight retaining…"
           }
         ]

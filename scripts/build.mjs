@@ -8,6 +8,7 @@ const ENTRYPOINTS = [
   { in: "src/mcp-server.ts", out: "mcp-server" },
   { in: "hooks/recall.ts", out: "recall" },
   { in: "hooks/retain.ts", out: "retain" },
+  { in: "hooks/session-start.ts", out: "session-start" },
 ];
 
 const shared = {

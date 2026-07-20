@@ -1,15 +1,21 @@
 /**
  * ZCode Stop hook -> automatic per-turn Hindsight retain.
  *
- * TypeScript port of pi's agent_end -> WriteScheduler.onTurnEnd() from
- * hindsight-pi-local/extensions/upload.ts. The Stop payload includes
- * `responsePreview` (the agent's final answer); we retain a compact record.
+ * Port of pi's agent_end -> WriteScheduler.onTurnEnd() from
+ * hindsight-pi-local/extensions/upload.ts. Uses the retain-pipeline module
+ * for: sanitization, skip rules, retry queue, provenance tags, async send.
+ *
+ * The Stop payload includes `responsePreview` (the agent's final answer) and
+ * (optionally) `userPrompt` (the prompt that triggered the turn). We build a
+ * sanitized, chunked, tagged turn-summary from those and send it through the
+ * pipeline.
  *
  * Failure-isolated: any error -> emit {} (never block the turn).
  */
 import { resolveConfig } from "../src/config.ts";
 import { deriveBankId } from "../src/bank.ts";
-import { ensureBank, retain } from "../src/client.ts";
+import { ensureBank } from "../src/client.ts";
+import { onTurnEnd } from "../src/retain-pipeline.ts";
 import { HookOutputSchema, StopPayloadSchema, type HookOutput } from "../src/types.ts";
 
 const readStdin = (): Promise<unknown> =>
@@ -43,8 +49,10 @@ const main = async (): Promise<void> => {
   if (!config.enabled) return emit({});
   if (config.retainMode === "off") return emit({});
 
-  const preview = (payload.responsePreview ?? "").trim();
-  if (!preview || preview.length < 40) return emit({}); // drop trivial (pi parity)
+  const responsePreview = (payload.responsePreview ?? "").trim();
+  // zcode's Stop payload doesn't include the original user prompt directly;
+  // it can include it as part of the session context. Best-effort: empty.
+  const userPrompt = "";
 
   const bankId = await deriveBankId(cwd, config.bankStrategy, config);
   await ensureBank(config.baseUrl, config.apiKey, bankId, {
@@ -52,14 +60,23 @@ const main = async (): Promise<void> => {
     workspace: config.workspace,
   });
 
-  const content = preview.slice(0, 2000);
-  await retain(config.baseUrl, config.apiKey, bankId, content, {
-    context: `zcode session ${payload.sessionId ?? "unknown"} @ ${String(payload.timestamp ?? new Date().toISOString())}`,
-    tags: ["zcode", "agent-response", ...config.retainTags],
-    asyncRetain: true,
-  }).catch(() => {
-    // Retain is best-effort; never block the turn on a write failure.
-  });
+  // onTurnEnd awaits the actual retain (with backoff + queue fallback) so
+  // the hook process doesn't exit and drop the in-flight HTTP request.
+  // The Stop hook timeout in hooks.json must be >= retainTimeoutMs.
+  try {
+    await onTurnEnd({
+      config,
+      bankId,
+      userPrompt,
+      responsePreview,
+    });
+  } catch (error) {
+    if (config.logging) {
+      console.error(
+        `[hindsight/retain] onTurnEnd failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
 
   emit(HookOutputSchema.parse({ hookEventName: "Stop" }));
 };

@@ -138,9 +138,10 @@ export const reflect = async (
 };
 
 export interface RetainOptions {
-  readonly context?: string;
-  readonly tags?: readonly string[];
-  readonly asyncRetain?: boolean;
+  readonly context?: string | undefined;
+  readonly tags?: readonly string[] | undefined;
+  readonly asyncRetain?: boolean | undefined;
+  readonly metadata?: Readonly<Record<string, unknown>> | undefined;
 }
 
 export const retain = async (
@@ -156,6 +157,7 @@ export const retain = async (
     context: opts.context,
     tags: opts.tags,
     async: opts.asyncRetain,
+    metadata: opts.metadata,
   });
   const raw = await request(baseUrl, apiKey, path, { method: "POST", body });
   return parseOrThrow(RetainResponseSchema, path, raw);
@@ -168,7 +170,19 @@ export interface EnsureBankOptions {
   readonly workspace: string;
 }
 
-/** Get-or-create a bank. No-op if the bank already exists. */
+/**
+ * Get-or-create a bank. No-op if the bank already exists.
+ *
+ * Server-version tolerant: older Hindsight servers don't expose
+ * `GET /v1/default/banks/{bank_id}` (only PUT/PATCH/DELETE on that path),
+ * so probing via GET returns 405 — which we treat as "exists" (the path is
+ * valid, the bank is there, just GET isn't supported). We probe via the list
+ * endpoint instead, which always works and tells us whether the bank exists.
+ *
+ * Creation uses `PUT /v1/default/banks/{bank_id}` (the OpenAPI-spec'd create
+ * endpoint). POST /v1/default/banks is the LIST endpoint, not create — using
+ * POST here would also 405.
+ */
 export const ensureBank = async (
   baseUrl: string,
   apiKey: string | undefined,
@@ -176,19 +190,27 @@ export const ensureBank = async (
   opts: EnsureBankOptions,
 ): Promise<void> => {
   if (!opts.autoCreateBank) return;
-  const path = `/v1/default/banks/${bankId}`;
+
+  // Cheap existence check via the list endpoint (single round-trip).
   try {
-    await request(baseUrl, apiKey, path, { method: "GET", timeoutMs: 10000 });
+    const list = await listBanks(baseUrl, apiKey);
+    if (list.some((b) => b.bank_id === bankId)) return; // exists, done
+  } catch {
+    // List failed (network blip, auth issue) — fall through and try create.
+    // If the create also fails, ensureBank's caller will surface the error.
+  }
+
+  // Not in list → create via PUT (matches OpenAPI spec).
+  try {
+    await request(baseUrl, apiKey, `/v1/default/banks/${bankId}`, {
+      method: "PUT",
+      body: JSON.stringify({ bank_id: bankId, name: bankId, workspace: opts.workspace }),
+      timeoutMs: 10000,
+    });
   } catch (err) {
-    if (err instanceof HindsightHttpError && err.status === 404) {
-      await request(baseUrl, apiKey, "/v1/default/banks", {
-        method: "POST",
-        body: JSON.stringify({ bank_id: bankId, workspace: opts.workspace }),
-      });
-      return;
-    }
-    // 409 (already exists) or transient errors -> tolerate; recall will surface real issues.
-    if (!(err instanceof HindsightHttpError) || (err.status !== 409 && err.status < 500)) {
+    // 409 (already exists, race with another process) -> tolerate.
+    // Other errors -> propagate.
+    if (!(err instanceof HindsightHttpError) || err.status !== 409) {
       throw err;
     }
   }

@@ -214,6 +214,9 @@ export const HookEventNameSchema = z.enum([
   "PostToolUseFailure",
   "Stop",
 ]);
+// Note: zcode.cjs only dispatches these 7 hook events to plugins (verified
+// against the runtime binary). SessionEnd / SessionShutdown / SessionSwitch
+// are NOT exposed — see hooks/session-start.ts for the implications.
 
 /** The shape ZCode pipes to a hook process on stdin. */
 const BaseHookPayloadSchema = z.object({
@@ -252,6 +255,13 @@ export type HookOutput = z.infer<typeof HookOutputSchema>;
 
 // ---------- Resolved config ----------
 
+export interface RetryQueueConfig {
+  readonly enabled: boolean;
+  readonly maxSizeBytes: number;
+  readonly maxRetries: number;
+  readonly maxAgeHours: number;
+}
+
 export interface HindsightConfig {
   readonly enabled: boolean;
   readonly apiKey: string | undefined;
@@ -277,6 +287,20 @@ export interface HindsightConfig {
   readonly contextTokens: number;
   readonly retainMode: RetainMode;
   readonly retainTags: string[];
+  // Retain pipeline knobs (parity with pi's WriteScheduler / upload.ts).
+  readonly retainAsync: boolean;
+  readonly retainTimeoutMs: number;
+  readonly stepRetainThreshold: number;
+  readonly writeFrequency: "async" | "session" | number;
+  readonly saveMessages: boolean;
+  readonly retryQueue: RetryQueueConfig;
+  // Recall synthesis knobs (parity with pi's tools.ts dynamicBudget).
+  readonly reasoningLevel: "low" | "medium" | "high";
+  readonly reasoningLevelCap: "low" | "medium" | "high" | null;
+  readonly dialecticDynamic: boolean;
+  // Show UI status indicators (parity with pi's indicatorsInContext).
+  readonly showRecallIndicator: boolean;
+  readonly showRetainIndicator: boolean;
 }
 
 // ---------- MCP tool call types ----------

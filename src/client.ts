@@ -151,13 +151,19 @@ export const retain = async (
   content: string,
   opts: RetainOptions = {},
 ) => {
+  // The Hindsight retain API expects {items: MemoryItem[], async: bool} where
+  // each MemoryItem has {content, context?, metadata?, tags?, timestamp?, ...}.
+  // The older single-content shape ({content, tags, ...} at top level) was
+  // rejected with 422 "Field required: items" on the server this user runs
+  // (Hindsight 0.7.1). Wrap in an items array of length 1.
+  const item: Record<string, unknown> = { content };
+  if (opts.context !== undefined) item.context = opts.context;
+  if (opts.metadata !== undefined) item.metadata = opts.metadata;
+  if (opts.tags !== undefined) item.tags = [...opts.tags];
   const path = `/v1/default/banks/${bankId}/memories`;
   const body = JSON.stringify({
-    content,
-    context: opts.context,
-    tags: opts.tags,
-    async: opts.asyncRetain,
-    metadata: opts.metadata,
+    items: [item],
+    async: opts.asyncRetain ?? false,
   });
   const raw = await request(baseUrl, apiKey, path, { method: "POST", body });
   return parseOrThrow(RetainResponseSchema, path, raw);
@@ -227,7 +233,11 @@ export const getBankProfile = async (
   apiKey: string | undefined,
   bankId: BankId,
 ) => {
-  const path = `/v1/default/banks/${bankId}`;
+  // Per OpenAPI spec, the profile read endpoint is
+  // GET /v1/default/banks/{bank_id}/profile (operationId: get_bank_profile).
+  // The bare path GET /v1/default/banks/{bank_id} is PUT/PATCH/DELETE only on
+  // older servers and returns 405 on GET. Use /profile explicitly.
+  const path = `/v1/default/banks/${bankId}/profile`;
   const raw = await request(baseUrl, apiKey, path);
   return parseOrThrow(BankProfileSchema, path, raw);
 };

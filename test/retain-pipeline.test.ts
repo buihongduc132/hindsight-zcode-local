@@ -44,6 +44,28 @@ describe("shouldSkipRetain", () => {
   it("does not skip real prompts", () => {
     expect(shouldSkipRetain({ userPrompt: "fix the auth bug in login.ts" }).skip).toBe(false);
   });
+
+  // REGRESSION: hooks/retain.ts hardcodes userPrompt="" because zcode's Stop
+  // payload carries no prompt field (verified against zcode.cjs). An earlier
+  // shouldSkipRetain returned {skip:true,reason:"no prompt"} for empty prompts,
+  // silently skipping EVERY production retain. This pins the fix: when
+  // responsePreview is present, an empty userPrompt must NOT trigger a skip.
+  it("does NOT skip when userPrompt is empty BUT responsePreview is present (zcode Stop hook shape)", () => {
+    expect(
+      shouldSkipRetain({ userPrompt: "", responsePreview: "I fixed the auth bug." }).skip,
+    ).toBe(false);
+  });
+
+  it("DOES skip when both userPrompt and responsePreview are empty", () => {
+    expect(shouldSkipRetain({ userPrompt: "", responsePreview: "" }).skip).toBe(true);
+    expect(shouldSkipRetain({ userPrompt: "", responsePreview: "   " }).skip).toBe(true);
+  });
+
+  it("does not apply trivial/meta-memory checks when prompt is empty (response-only)", () => {
+    expect(
+      shouldSkipRetain({ userPrompt: "", responsePreview: "ok" }).skip,
+    ).toBe(false);
+  });
 });
 
 describe("chunkTextSmart", () => {

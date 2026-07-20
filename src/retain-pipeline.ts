@@ -76,7 +76,18 @@ export const shouldSkipRetain = (input: {
     return { skip: true, reason: "explicit-retain-called" };
   }
   const prompt = (input.userPrompt ?? "").trim();
-  if (!prompt) return { skip: true, reason: "no prompt" };
+  const hasResponse = (input.responsePreview ?? "").trim().length > 0;
+  // zcode's Stop hook payload has NO user prompt field (verified against
+  // /opt/ZCode/resources/glm/zcode.cjs — Stop dispatches only responsePreview,
+  // responseText, sessionId, toolCallCount, timestamp, traceId, turnId). So in
+  // production we always arrive with userPrompt="". Skipping on empty prompt
+  // would skip EVERY production retain. Treat responsePreview-present as
+  // sufficient signal to retain (matches the module's stated intent at the top
+  // of this file: "when only the assistant response is available, we retain
+  // it as a turn-summary chunk"). The trivial/meta-memory checks only apply
+  // when we actually have a prompt to classify.
+  if (!prompt && !hasResponse) return { skip: true, reason: "no prompt and no response" };
+  if (!prompt) return { skip: false }; // response-only retain (zcode Stop hook)
   if (prompt.length < 5) return { skip: true, reason: "too short" };
   if (TRIVIAL_PROMPT_RE.test(prompt)) return { skip: true, reason: "trivial" };
   if (/^(#nomem|#skip)(?=\s|$)/i.test(prompt)) return { skip: true, reason: "opt-out" };

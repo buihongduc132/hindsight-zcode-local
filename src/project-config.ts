@@ -51,8 +51,18 @@ export const readProjectConfig = async (
 ): Promise<HindsightProjectConfig | null> => {
   try {
     const raw = await readFile(filePath, "utf8");
-    const parsed = JSON.parse(raw) as Partial<HindsightProjectConfig>;
-    if (typeof parsed === "object" && parsed.version === 1 && parsed.bankId) {
+    const parsed: unknown = JSON.parse(raw);
+    // typeof null === "object", so the explicit `!== null` check is
+    // load-bearing: `JSON.parse("null")` returns null at runtime.
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "version" in parsed &&
+      parsed.version === 1 &&
+      "bankId" in parsed &&
+      typeof parsed.bankId === "string" &&
+      parsed.bankId.length > 0
+    ) {
       return parsed as HindsightProjectConfig;
     }
     return null;

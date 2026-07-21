@@ -87,7 +87,14 @@ export const shouldSkipRetain = (input: {
   // it as a turn-summary chunk"). The trivial/meta-memory checks only apply
   // when we actually have a prompt to classify.
   if (!prompt && !hasResponse) return { skip: true, reason: "no prompt and no response" };
-  if (!prompt) return { skip: false }; // response-only retain (zcode Stop hook)
+  if (!prompt) {
+    // Response-only retain (zcode Stop hook). Pi parity: drop trivial responses
+    // under 40 chars (the old retain.ts had `preview.length < 40` check).
+    if ((input.responsePreview ?? "").trim().length < 40) {
+      return { skip: true, reason: "response too short" };
+    }
+    return { skip: false };
+  }
   if (prompt.length < 5) return { skip: true, reason: "too short" };
   if (TRIVIAL_PROMPT_RE.test(prompt)) return { skip: true, reason: "trivial" };
   if (/^(#nomem|#skip)(?=\s|$)/i.test(prompt)) return { skip: true, reason: "opt-out" };
@@ -228,18 +235,13 @@ const sendWithRetry = async (
   items: RetainItem[],
 ): Promise<void> => {
   const attempt = async (): Promise<void> => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), config.retainTimeoutMs);
-    try {
-      for (const item of items) {
-        await retain(config.baseUrl, config.apiKey, bankId, item.content, {
-          context: item.context,
-          tags: item.tags,
-          asyncRetain: config.retainAsync,
-        });
-      }
-    } finally {
-      clearTimeout(timeoutId);
+    for (const item of items) {
+      await retain(config.baseUrl, config.apiKey, bankId, item.content, {
+        context: item.context,
+        tags: item.tags,
+        asyncRetain: config.retainAsync,
+        timeoutMs: config.retainTimeoutMs,
+      });
     }
   };
 

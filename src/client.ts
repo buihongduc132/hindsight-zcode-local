@@ -142,6 +142,7 @@ export interface RetainOptions {
   readonly tags?: readonly string[] | undefined;
   readonly asyncRetain?: boolean | undefined;
   readonly metadata?: Readonly<Record<string, unknown>> | undefined;
+  readonly timeoutMs?: number | undefined;
 }
 
 export const retain = async (
@@ -165,7 +166,12 @@ export const retain = async (
     items: [item],
     async: opts.asyncRetain ?? false,
   });
-  const raw = await request(baseUrl, apiKey, path, { method: "POST", body });
+  const init: FetchInit = {
+    method: "POST",
+    body,
+    ...(opts.timeoutMs !== undefined ? { timeoutMs: opts.timeoutMs } : {}),
+  };
+  const raw = await request(baseUrl, apiKey, path, init);
   return parseOrThrow(RetainResponseSchema, path, raw);
 };
 
@@ -182,8 +188,8 @@ export interface EnsureBankOptions {
  * Server-version tolerant: older Hindsight servers don't expose
  * `GET /v1/default/banks/{bank_id}` (only PUT/PATCH/DELETE on that path),
  * so probing via GET returns 405 — which we treat as "exists" (the path is
- * valid, the bank is there, just GET isn't supported). We probe via the list
- * endpoint instead, which always works and tells us whether the bank exists.
+ * valid, the bank is there, just GET isn't supported). We probe via the profile
+ * endpoint instead, which is specific to this bank and avoids a list-all.
  *
  * Creation uses `PUT /v1/default/banks/{bank_id}` (the OpenAPI-spec'd create
  * endpoint). POST /v1/default/banks is the LIST endpoint, not create — using
@@ -197,16 +203,20 @@ export const ensureBank = async (
 ): Promise<void> => {
   if (!opts.autoCreateBank) return;
 
-  // Cheap existence check via the list endpoint (single round-trip).
+  // Efficient existence check via the bank profile endpoint (single round-trip,
+  // specific to this bank — no list-all filtering needed).
   try {
-    const list = await listBanks(baseUrl, apiKey);
-    if (list.some((b) => b.bank_id === bankId)) return; // exists, done
-  } catch {
-    // List failed (network blip, auth issue) — fall through and try create.
-    // If the create also fails, ensureBank's caller will surface the error.
+    await getBankProfile(baseUrl, apiKey, bankId);
+    return; // exists, done
+  } catch (err) {
+    // If the bank profile is not found (404) or endpoint unsupported (405 on
+    // very old servers), proceed to create. Other errors propagate.
+    if (err instanceof HindsightHttpError && err.status !== 404 && err.status !== 405) {
+      throw err;
+    }
   }
 
-  // Not in list → create via PUT (matches OpenAPI spec).
+  // Not found → create via PUT (matches OpenAPI spec).
   try {
     await request(baseUrl, apiKey, `/v1/default/banks/${bankId}`, {
       method: "PUT",

@@ -79,10 +79,12 @@ const withLock = async <T>(fn: () => Promise<T>): Promise<T> => {
   await ensureDir();
   const maxAttempts = 300;
   const retryMs = 100;
+  let hasLock = false;
   for (let i = 0; i < maxAttempts; i++) {
     try {
       const handle = await open(getLockFile(), "wx");
       await handle.close();
+      hasLock = true;
       break;
     } catch {
       if (i === maxAttempts - 1) {
@@ -92,9 +94,14 @@ const withLock = async <T>(fn: () => Promise<T>): Promise<T> => {
         } catch {
           // ignore
         }
-        const handle = await open(getLockFile(), "wx");
-        await handle.close();
-        break;
+        try {
+          const handle = await open(getLockFile(), "wx");
+          await handle.close();
+          hasLock = true;
+          break;
+        } catch {
+          // give up — fall through, fn() may fail or succeed without lock
+        }
       }
       await new Promise((r) => setTimeout(r, retryMs));
     }
@@ -102,10 +109,13 @@ const withLock = async <T>(fn: () => Promise<T>): Promise<T> => {
   try {
     return await fn();
   } finally {
-    try {
-      await unlink(getLockFile());
-    } catch {
-      // already gone
+    // Only release the lock if we actually acquired it.
+    if (hasLock) {
+      try {
+        await unlink(getLockFile());
+      } catch {
+        // already gone
+      }
     }
   }
 };

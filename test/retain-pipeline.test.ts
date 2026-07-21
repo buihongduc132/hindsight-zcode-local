@@ -52,7 +52,7 @@ describe("shouldSkipRetain", () => {
   // responsePreview is present, an empty userPrompt must NOT trigger a skip.
   it("does NOT skip when userPrompt is empty BUT responsePreview is present (zcode Stop hook shape)", () => {
     expect(
-      shouldSkipRetain({ userPrompt: "", responsePreview: "I fixed the auth bug." }).skip,
+      shouldSkipRetain({ userPrompt: "", responsePreview: "I fixed the auth bug in login.ts by updating the config." }).skip,
     ).toBe(false);
   });
 
@@ -61,10 +61,15 @@ describe("shouldSkipRetain", () => {
     expect(shouldSkipRetain({ userPrompt: "", responsePreview: "   " }).skip).toBe(true);
   });
 
-  it("does not apply trivial/meta-memory checks when prompt is empty (response-only)", () => {
+  it("does not apply trivial/meta-memory checks when prompt is empty (response-only) but respects minimum length", () => {
+    // Long enough — retained
+    expect(
+      shouldSkipRetain({ userPrompt: "", responsePreview: "I fixed the auth bug in login.ts by updating the config." }).skip,
+    ).toBe(false);
+    // Too short — skipped (pi parity: <40 char threshold)
     expect(
       shouldSkipRetain({ userPrompt: "", responsePreview: "ok" }).skip,
-    ).toBe(false);
+    ).toBe(true);
   });
 });
 

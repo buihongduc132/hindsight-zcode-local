@@ -138,9 +138,11 @@ export const reflect = async (
 };
 
 export interface RetainOptions {
-  readonly context?: string;
-  readonly tags?: readonly string[];
-  readonly asyncRetain?: boolean;
+  readonly context?: string | undefined;
+  readonly tags?: readonly string[] | undefined;
+  readonly asyncRetain?: boolean | undefined;
+  readonly metadata?: Readonly<Record<string, unknown>> | undefined;
+  readonly timeoutMs?: number | undefined;
 }
 
 export const retain = async (
@@ -150,14 +152,26 @@ export const retain = async (
   content: string,
   opts: RetainOptions = {},
 ) => {
+  // The Hindsight retain API expects {items: MemoryItem[], async: bool} where
+  // each MemoryItem has {content, context?, metadata?, tags?, timestamp?, ...}.
+  // The older single-content shape ({content, tags, ...} at top level) was
+  // rejected with 422 "Field required: items" on the server this user runs
+  // (Hindsight 0.7.1). Wrap in an items array of length 1.
+  const item: Record<string, unknown> = { content };
+  if (opts.context !== undefined) item.context = opts.context;
+  if (opts.metadata !== undefined) item.metadata = opts.metadata;
+  if (opts.tags !== undefined) item.tags = [...opts.tags];
   const path = `/v1/default/banks/${bankId}/memories`;
   const body = JSON.stringify({
-    content,
-    context: opts.context,
-    tags: opts.tags,
-    async: opts.asyncRetain,
+    items: [item],
+    async: opts.asyncRetain ?? false,
   });
-  const raw = await request(baseUrl, apiKey, path, { method: "POST", body });
+  const init: FetchInit = {
+    method: "POST",
+    body,
+    ...(opts.timeoutMs !== undefined ? { timeoutMs: opts.timeoutMs } : {}),
+  };
+  const raw = await request(baseUrl, apiKey, path, init);
   return parseOrThrow(RetainResponseSchema, path, raw);
 };
 
@@ -168,7 +182,19 @@ export interface EnsureBankOptions {
   readonly workspace: string;
 }
 
-/** Get-or-create a bank. No-op if the bank already exists. */
+/**
+ * Get-or-create a bank. No-op if the bank already exists.
+ *
+ * Server-version tolerant: older Hindsight servers don't expose
+ * `GET /v1/default/banks/{bank_id}` (only PUT/PATCH/DELETE on that path),
+ * so probing via GET returns 405 — which we treat as "exists" (the path is
+ * valid, the bank is there, just GET isn't supported). We probe via the profile
+ * endpoint instead, which is specific to this bank and avoids a list-all.
+ *
+ * Creation uses `PUT /v1/default/banks/{bank_id}` (the OpenAPI-spec'd create
+ * endpoint). POST /v1/default/banks is the LIST endpoint, not create — using
+ * POST here would also 405.
+ */
 export const ensureBank = async (
   baseUrl: string,
   apiKey: string | undefined,
@@ -176,19 +202,31 @@ export const ensureBank = async (
   opts: EnsureBankOptions,
 ): Promise<void> => {
   if (!opts.autoCreateBank) return;
-  const path = `/v1/default/banks/${bankId}`;
+
+  // Efficient existence check via the bank profile endpoint (single round-trip,
+  // specific to this bank — no list-all filtering needed).
   try {
-    await request(baseUrl, apiKey, path, { method: "GET", timeoutMs: 10000 });
+    await getBankProfile(baseUrl, apiKey, bankId);
+    return; // exists, done
   } catch (err) {
-    if (err instanceof HindsightHttpError && err.status === 404) {
-      await request(baseUrl, apiKey, "/v1/default/banks", {
-        method: "POST",
-        body: JSON.stringify({ bank_id: bankId, workspace: opts.workspace }),
-      });
-      return;
+    // If the bank profile is not found (404) or endpoint unsupported (405 on
+    // very old servers), proceed to create. Other errors propagate.
+    if (err instanceof HindsightHttpError && err.status !== 404 && err.status !== 405) {
+      throw err;
     }
-    // 409 (already exists) or transient errors -> tolerate; recall will surface real issues.
-    if (!(err instanceof HindsightHttpError) || (err.status !== 409 && err.status < 500)) {
+  }
+
+  // Not found → create via PUT (matches OpenAPI spec).
+  try {
+    await request(baseUrl, apiKey, `/v1/default/banks/${bankId}`, {
+      method: "PUT",
+      body: JSON.stringify({ bank_id: bankId, name: bankId, workspace: opts.workspace }),
+      timeoutMs: 10000,
+    });
+  } catch (err) {
+    // 409 (already exists, race with another process) -> tolerate.
+    // Other errors -> propagate.
+    if (!(err instanceof HindsightHttpError) || err.status !== 409) {
       throw err;
     }
   }
@@ -205,7 +243,11 @@ export const getBankProfile = async (
   apiKey: string | undefined,
   bankId: BankId,
 ) => {
-  const path = `/v1/default/banks/${bankId}`;
+  // Per OpenAPI spec, the profile read endpoint is
+  // GET /v1/default/banks/{bank_id}/profile (operationId: get_bank_profile).
+  // The bare path GET /v1/default/banks/{bank_id} is PUT/PATCH/DELETE only on
+  // older servers and returns 405 on GET. Use /profile explicitly.
+  const path = `/v1/default/banks/${bankId}/profile`;
   const raw = await request(baseUrl, apiKey, path);
   return parseOrThrow(BankProfileSchema, path, raw);
 };

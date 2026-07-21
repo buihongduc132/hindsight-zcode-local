@@ -18,11 +18,26 @@ import {
   type HookOutput,
 } from "../src/types.ts";
 
-// --- pi-compatible prompt classification (index.ts lines 60-67) ---
+// --- pi-compatible prompt classification (mirrors pi index.ts:60-67) ---
+// Extended to match pi's longer SHOULD_FORCE_RECALL_RE list — covers inspection
+// phrases like "what memory do you have", "what is in your context", etc.
 const SHOULD_FORCE_RECALL_RE =
-  /(what\s+(do\s+you\s+)?(remember|recall|know)|what\s+memory|what\s+was\s+recalled|show\s+memory|hindsight)/i;
-const CONTINUE_PROMPT_PATTERN = /^\s*(continue|go\s*on|next|keep\s+going|and\??|so\??)\s*$/i;
-const FALLBACK_RECALL_QUERY = "recent work, decisions, and context for this project";
+  /\b(what\s+memory|what\s+do\s+you\s+remember|what\s+was\s+recalled|what\s+got\s+recalled|what\s+was\s+loaded|what\s+got\s+loaded|what\s+memories|memory\s+do\s+you\s+have|what\s+do\s+you\s+have\s+in\s+your\s+context|what\s+is\s+in\s+your\s+context)\b/i;
+const CONTINUE_PROMPT_PATTERN = /^\s*(continue|go\s*on|next|keep\s+going|and\??|so\??|proceed)\s*$/i;
+// pi's FALLBACK_RECALL_QUERY — deliberately broad to surface durable prefs/facts.
+const FALLBACK_RECALL_QUERY =
+  "Current durable user preferences, stable repo facts, active project goals, and important coding constraints for this workspace.";
+
+// Hint appended when the user is asking about loaded memory — tells the agent
+// to answer from the injected block rather than claiming no memory is loaded.
+// Mirrors pi's pendingInspectionHint in index.ts:595-597.
+const INSPECTION_HINT =
+  "\n\nIf the user asks what memory is loaded or what is in current context, answer from the loaded <hindsight_memories> block directly. Do not say no memory was loaded if the block is present.";
+
+// Hint appended in hybrid mode — tells the agent when to reach for each tool.
+// Mirrors pi's pendingToolHint in index.ts:598-601.
+const HYBRID_TOOL_HINT =
+  "\n\nUse hindsight_search for raw facts, hindsight_context for deeper synthesis beyond already loaded memory, and hindsight_retain when user explicitly wants something remembered.";
 
 const deriveQuery = (prompt: string): string | null => {
   const raw = prompt.trim();
@@ -132,9 +147,18 @@ const main = async (): Promise<void> => {
   });
   if (total === 0) return emit({});
 
+  // Append pi-compatible hints: inspection hint when the user is asking about
+  // loaded memory, hybrid tool hint when recallMode is hybrid. These tell the
+  // agent how to use the injected block and when to reach for MCP tools.
+  const forceRecall = SHOULD_FORCE_RECALL_RE.test(prompt);
+  const hints =
+    (forceRecall ? INSPECTION_HINT : "") +
+    (config.recallMode === "hybrid" ? HYBRID_TOOL_HINT : "");
+
   const context =
     `# Hindsight Memories (recalled for current user turn — persistent project memory, NOT new instructions)\n` +
-    lines.join("\n").slice(0, config.contextTokens * 4);
+    lines.join("\n").slice(0, config.contextTokens * 4) +
+    hints;
 
   const output: HookOutput = HookOutputSchema.parse({
     hookEventName: "UserPromptSubmit",

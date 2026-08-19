@@ -1,0 +1,16 @@
+{"ts":"2026-07-20T19:42:19.906Z","phase":"disarm","source":"pi-print-clean-exit","pid":211972,"ppid":211962,"reason":"agent_start"}
+{"ts":"2026-07-20T19:42:20.031Z","phase":"disarm","source":"pi-print-clean-exit","pid":211973,"ppid":211962,"reason":"agent_start"}
+{"ts":"2026-07-20T19:43:43.530Z","phase":"agent_end_seen","source":"pi-print-clean-exit","pid":211972,"ppid":211962,"mode":"json","hasPending":false,"isHeadless":true}
+{"ts":"2026-07-20T19:43:43.530Z","phase":"arm_clean_exit","source":"pi-print-clean-exit","pid":211972,"ppid":211962,"mode":"json","hasPending":false,"exitGraceMs":1500,"exitCode":0}
+{"ts":"2026-07-20T19:43:45.030Z","phase":"safe_exit","source":"pi-print-clean-exit","pid":211972,"ppid":211962,"code":0}
+{"ts":"2026-07-20T19:44:43.095Z","phase":"agent_end_seen","source":"pi-print-clean-exit","pid":211973,"ppid":211962,"mode":"json","hasPending":false,"isHeadless":true}
+{"ts":"2026-07-20T19:44:43.095Z","phase":"arm_clean_exit","source":"pi-print-clean-exit","pid":211973,"ppid":211962,"mode":"json","hasPending":false,"exitGraceMs":1500,"exitCode":0}
+{"ts":"2026-07-20T19:44:44.595Z","phase":"safe_exit","source":"pi-print-clean-exit","pid":211973,"ppid":211962,"code":0}
+{"ts":"2026-07-20T19:46:39.658Z","phase":"disarm","source":"pi-print-clean-exit","pid":287681,"ppid":287657,"reason":"agent_start"}
+{"ts":"2026-07-20T19:46:39.867Z","phase":"disarm","source":"pi-print-clean-exit","pid":287680,"ppid":287657,"reason":"agent_start"}
+{"ts":"2026-07-20T19:47:06.526Z","phase":"agent_end_seen","source":"pi-print-clean-exit","pid":287680,"ppid":287657,"mode":"json","hasPending":false,"isHeadless":true}
+{"ts":"2026-07-20T19:47:06.526Z","phase":"arm_clean_exit","source":"pi-print-clean-exit","pid":287680,"ppid":287657,"mode":"json","hasPending":false,"exitGraceMs":1500,"exitCode":0}
+{"ts":"2026-07-20T19:47:08.027Z","phase":"safe_exit","source":"pi-print-clean-exit","pid":287680,"ppid":287657,"code":0}
+{"ts":"2026-07-20T19:47:11.898Z","phase":"agent_end_seen","source":"pi-print-clean-exit","pid":287681,"ppid":287657,"mode":"json","hasPending":false,"isHeadless":true}
+{"ts":"2026-07-20T19:47:11.898Z","phase":"arm_clean_exit","source":"pi-print-clean-exit","pid":287681,"ppid":287657,"mode":"json","hasPending":false,"exitGraceMs":1500,"exitCode":0}
+{"ts":"2026-07-20T19:47:13.399Z","phase":"safe_exit","source":"pi-print-clean-exit","pid":287681,"ppid":287657,"code":0}
